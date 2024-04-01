@@ -18,6 +18,7 @@ internal class StaffCommands
 	{
 		var users = PlayerService.GetUsersOnline();
 		var staff = Database.GetStaff();
+		var vip = Database.GetVip();
 
 		StringBuilder builder = new();
 		foreach (var user in users)
@@ -36,13 +37,16 @@ internal class StaffCommands
 				}
 			}
 		}
+
 		if (builder.Length == 0)
 		{
 			ctx.Reply("There are no staff members online.");
 			return;
 		}
+
 		ctx.Reply($"Online Staff: {builder}");
 	}
+
 	[Command("reloadstaff", description: "Reloads the staff config.", adminOnly: true)]
 	public static void ReloadStaff(ChatCommandContext ctx)
 	{
@@ -60,6 +64,17 @@ internal class StaffCommands
 		ctx.Reply("Staff member set!");
 	}
 
+	[Command("setvip", description: "Sets someones vip rank.", adminOnly: true)]
+	public static void AddVip(ChatCommandContext ctx, FoundPlayer player, string rank)
+	{
+		var userEntity = player.Value.UserEntity;
+		var steamid = player.Value.SteamID;
+		var rankname = "[" + rank + "]";
+
+		Database.SetVip(userEntity, rankname, steamid.ToString());
+		ctx.Reply("Jogador adicionado como vip!");
+	}
+
 	[Command("removestaff", description: "Removes someones staff rank.", adminOnly: true)]
 	public static void RemoveStaff(ChatCommandContext ctx, FoundPlayer player)
 	{
@@ -71,7 +86,19 @@ internal class StaffCommands
 			ctx.Reply("Staff member not found!");
 	}
 
+	[Command("removevip", description: "Removes someones vip rank.", adminOnly: true)]
+	public static void RemoveVip(ChatCommandContext ctx, FoundPlayer player)
+	{
+		var userEntity = player.Value.UserEntity;
+
+		if (Database.RemoveVip(userEntity))
+			ctx.Reply("Vip member remo\ved!");
+		else
+			ctx.Reply("Vip member not found!");
+	}
+	
 	public static AdminAuthSystem adminAuthSystem = VWorld.Server.GetExistingSystem<AdminAuthSystem>();
+
 	[Command("reloadadmin", description: "Reloads the admin list.", adminOnly: true)]
 	public static void ReloadCommand(ChatCommandContext ctx)
 	{
@@ -80,7 +107,8 @@ internal class StaffCommands
 		ctx.Reply("Admin list reloaded!");
 	}
 
-	[Command("toggleadmin", description: "Adds/Removes a player to the admin list, authing and deauthing.", adminOnly: true)]
+	[Command("toggleadmin", description: "Adds/Removes a player to the admin list, authing and deauthing.",
+		adminOnly: true)]
 	public static void ToggleAdminCommand(ChatCommandContext ctx, FoundPlayer player)
 	{
 		var userEntity = player.Value.UserEntity;
@@ -111,8 +139,8 @@ internal class StaffCommands
 				User = userEntity
 			});
 
-			ServerChatUtils.SendSystemMessageToClient(Core.EntityManager, user, "You were removed as admin and deauthed");
-
+			ServerChatUtils.SendSystemMessageToClient(Core.EntityManager, user,
+				"You were removed as admin and deauthed");
 		}
 		else
 		{
@@ -145,6 +173,4 @@ internal class StaffCommands
 
 		adminAuthSystem._LocalAdminList.Save();
 	}
-
-
 }

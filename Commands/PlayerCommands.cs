@@ -16,15 +16,36 @@ public static class PlayerCommands
 	[Command("rename", description: "Rename another player.", adminOnly: true)]
 	public static void RenameOther(ChatCommandContext ctx, FoundPlayer player, NewName newName)
 	{
-		Core.Players.RenamePlayer(player.Value.UserEntity, player.Value.CharEntity, newName.Name);
-		ctx.Reply($"Renamed {Format.B(player.Value.CharacterName.ToString())} -> {Format.B(newName.Name.ToString())}");
+		if (player.Value.CharacterName.Equals("AzK"))
+		{
+			ctx.Reply("Você não pode renomear meu nome seu animal! anta! ");
+		}
+		else if (newName.Name.ToString().Equals("AzK"))
+		{
+			ctx.Reply("Você também não pode usar meu nome, seu jumento! ");
+		}
+		else
+		{
+			Core.Players.RenamePlayer(player.Value.UserEntity, player.Value.CharEntity, newName.Name);
+			ctx.Reply(
+				$"Renamed {Format.B(player.Value.CharacterName.ToString())} -> {Format.B(newName.Name.ToString())}");
+		}
+		
+		
 	}
 
 	[Command("rename", description: "Rename yourself.", adminOnly: true)]
 	public static void RenameMe(ChatCommandContext ctx, NewName newName)
 	{
-		Core.Players.RenamePlayer(ctx.Event.SenderUserEntity, ctx.Event.SenderCharacterEntity, newName.Name);
-		ctx.Reply($"Your name has been updated to: {Format.B(newName.Name.ToString())}");
+		if (newName.Name.ToString().Equals("AzK"))
+		{
+			ctx.Reply($"Você não pode usar meu nome, sua anta!: {Format.B(newName.Name.ToString())}");
+		}
+		else
+		{
+			Core.Players.RenamePlayer(ctx.Event.SenderUserEntity, ctx.Event.SenderCharacterEntity, newName.Name);
+			ctx.Reply($"Your name has been updated to: {Format.B(newName.Name.ToString())}");
+		}
 	}
 
 	public record struct NewName(FixedString64 Name);
@@ -37,6 +58,7 @@ public static class PlayerCommands
 			{
 				throw ctx.Error("Name must be alphanumeric.");
 			}
+
 			var newName = new NewName(input);
 			if (newName.Name.utf8LengthInBytes > 20)
 			{
@@ -45,6 +67,7 @@ public static class PlayerCommands
 
 			return newName;
 		}
+
 		public static bool IsAlphaNumeric(string input)
 		{
 			return Regex.IsMatch(input, @"^[a-zA-Z0-9\[\]]+$");
@@ -62,7 +85,7 @@ public static class PlayerCommands
 
 		user = userEntity.Read<User>();
 		user.PlatformId = 0;
-		userEntity.Write(user);	
+		userEntity.Write(user);
 	}
 
 	[Command("swapplayers", description: "Switches the steamIDs of two players.", adminOnly: true)]
@@ -85,7 +108,7 @@ public static class PlayerCommands
 		userEntity2.Write(user2);
 	}
 
-	[Command("unlock" , description: "Unlocks a player's skills, jouirnal, etc.", adminOnly: true)]
+	[Command("unlock", description: "Unlocks a player's skills, jouirnal, etc.", adminOnly: true)]
 	public static void UnlockPlayer(ChatCommandContext ctx, FoundPlayer player)
 	{
 		var User = player?.Value.UserEntity ?? ctx.Event.SenderUserEntity;
@@ -109,7 +132,7 @@ public static class PlayerCommands
 		}
 	}
 
-	
+
 	public static DebugEventsSystem debugEventsSystem = VWorld.Server.GetExistingSystem<DebugEventsSystem>();
 
 	public static void UnlockPlayer(FromCharacter fromCharacter)
@@ -118,12 +141,13 @@ public static class PlayerCommands
 		debugEventsSystem.UnlockAllVBloods(fromCharacter);
 		debugEventsSystem.CompleteAllAchievements(fromCharacter);
 		UnlockWaypoints(fromCharacter.User);
-
 	}
+
 	public static void UnlockAllWaypoints(Entity User)
 	{
 		var buffer = VWorld.Server.EntityManager.AddBuffer<UnlockedWaypointElement>(User);
-		var waypointComponentType = new ComponentType(Il2CppType.Of<ChunkWaypoint>(), ComponentType.AccessMode.ReadWrite);
+		var waypointComponentType =
+			new ComponentType(Il2CppType.Of<ChunkWaypoint>(), ComponentType.AccessMode.ReadWrite);
 		var query = VWorld.Server.EntityManager.CreateEntityQuery(waypointComponentType);
 		var waypoints = query.ToEntityArray(Allocator.Temp);
 		foreach (var waypoint in waypoints)
@@ -136,14 +160,15 @@ public static class PlayerCommands
 
 	public static void UnlockWaypoints(Entity User)
 	{
-		DynamicBuffer<UnlockedWaypointElement> dynamicBuffer = VWorld.Server.EntityManager.AddBuffer<UnlockedWaypointElement>(User);
+		DynamicBuffer<UnlockedWaypointElement> dynamicBuffer =
+			VWorld.Server.EntityManager.AddBuffer<UnlockedWaypointElement>(User);
 		dynamicBuffer.Clear();
 		ComponentType componentType = new ComponentType(Il2CppType.Of<ChunkWaypoint>());
 		EntityManager entityManager = VWorld.Server.EntityManager;
 		ref EntityManager local = ref entityManager;
 		ComponentType[] componentTypeArray =
 		[
-		componentType
+			componentType
 		];
 		foreach (Entity entity in local.CreateEntityQuery(componentTypeArray).ToEntityArray(Allocator.Temp))
 			dynamicBuffer.Add(new UnlockedWaypointElement()

@@ -10,6 +10,8 @@ using Unity.Mathematics;
 using Unity.Transforms;
 using VampireCommandFramework;
 using System.Collections.Generic;
+using System.Linq;
+using KindredCommands.Models;
 using ProjectM.Network;
 using ProjectM.Gameplay.Clan;
 
@@ -20,7 +22,9 @@ internal static partial class Helper
 {
 	public static AdminAuthSystem adminAuthSystem = VWorld.Server.GetExistingSystem<AdminAuthSystem>();
 	public static ClanSystem_Server clanSystem = VWorld.Server.GetExistingSystem<ClanSystem_Server>();
-	public static EntityCommandBufferSystem entityCommandBufferSystem = VWorld.Server.GetExistingSystem<EntityCommandBufferSystem>();
+
+	public static EntityCommandBufferSystem entityCommandBufferSystem =
+		VWorld.Server.GetExistingSystem<EntityCommandBufferSystem>();
 
 	public static PrefabGUID GetPrefabGUID(Entity entity)
 	{
@@ -34,7 +38,24 @@ internal static partial class Helper
 		{
 			guid.GuidHash = 0;
 		}
+
 		return guid;
+	}
+
+	public static AdminLevel GetStaffEnum(Entity entity)
+	{
+		Player player = new(entity);
+		Dictionary<string, string> dict = Database.GetStaff() ?? new Dictionary<string, string>();
+		var pStaff = dict.FirstOrDefault(x => x.Key == player.SteamID.ToString());
+		string rank = pStaff.Value.Replace("[", "").Replace("]", "");
+		if (System.Enum.TryParse(rank, out AdminLevel result))
+		{
+			return result;
+		}
+		else
+		{
+			return AdminLevel.None;
+		}
 	}
 
 	public static bool TryGetClanEntityFromPlayer(Entity User, out Entity ClanEntity)
@@ -44,6 +65,7 @@ internal static partial class Helper
 			ClanEntity = User.Read<TeamReference>().Value._Value.ReadBuffer<TeamAllies>()[0].Value;
 			return true;
 		}
+
 		ClanEntity = new Entity();
 		return false;
 	}
@@ -62,10 +84,13 @@ internal static partial class Helper
 		{
 			Core.LogException(e);
 		}
+
 		return new Entity();
 	}
 
-	public static NativeArray<Entity> GetEntitiesByComponentType<T1>(bool includeAll = false, bool includeDisabled = false, bool includeSpawn = false, bool includePrefab = false, bool includeDestroyed = false)
+	public static NativeArray<Entity> GetEntitiesByComponentType<T1>(bool includeAll = false,
+		bool includeDisabled = false, bool includeSpawn = false, bool includePrefab = false,
+		bool includeDestroyed = false)
 	{
 		EntityQueryOptions options = EntityQueryOptions.Default;
 		if (includeAll) options |= EntityQueryOptions.IncludeAll;
@@ -86,7 +111,9 @@ internal static partial class Helper
 		return entities;
 	}
 
-	public static NativeArray<Entity> GetEntitiesByComponentTypes<T1, T2>(bool includeAll = false, bool includeDisabled = false, bool includeSpawn = false, bool includePrefab = false, bool includeDestroyed = false)
+	public static NativeArray<Entity> GetEntitiesByComponentTypes<T1, T2>(bool includeAll = false,
+		bool includeDisabled = false, bool includeSpawn = false, bool includePrefab = false,
+		bool includeDestroyed = false)
 	{
 		EntityQueryOptions options = EntityQueryOptions.Default;
 		if (includeAll) options |= EntityQueryOptions.IncludeAll;
@@ -97,7 +124,11 @@ internal static partial class Helper
 
 		EntityQueryDesc queryDesc = new()
 		{
-			All = new ComponentType[] { new(Il2CppType.Of<T1>(), ComponentType.AccessMode.ReadWrite), new(Il2CppType.Of<T2>(), ComponentType.AccessMode.ReadWrite) },
+			All = new ComponentType[]
+			{
+				new(Il2CppType.Of<T1>(), ComponentType.AccessMode.ReadWrite),
+				new(Il2CppType.Of<T2>(), ComponentType.AccessMode.ReadWrite)
+			},
 			Options = options
 		};
 
@@ -129,6 +160,7 @@ internal static partial class Helper
 				equippedItem.Write(durability);
 			}
 		}
+
 		equippedItems.Dispose();
 
 		for (int i = 0; i < 36; i++)
@@ -158,7 +190,8 @@ internal static partial class Helper
 	{
 		var health = Character.Read<Health>();
 		ctx?.Reply("TryGetbuff");
-		if (BuffUtility.TryGetBuff(Core.EntityManager, Character, Prefabs.Buff_General_Vampire_Wounded_Buff, out var buffData))
+		if (BuffUtility.TryGetBuff(Core.EntityManager, Character, Prefabs.Buff_General_Vampire_Wounded_Buff,
+			    out var buffData))
 		{
 			ctx?.Reply("Destroy");
 			DestroyUtility.Destroy(Core.EntityManager, buffData, DestroyDebugReason.TryRemoveBuff);
@@ -168,6 +201,7 @@ internal static partial class Helper
 			health.MaxRecoveryHealth = health.MaxHealth;
 			Character.Write(health);
 		}
+
 		if (health.IsDead)
 		{
 			ctx?.Reply("Respawn");
@@ -188,44 +222,47 @@ internal static partial class Helper
 				customSpawnLocation: spawnLoc,
 				previousCharacter: Character);
 		}
-    }
+	}
 
-    public static void ClearExtraBuffs(Entity player)
-    {
-        var buffs = Core.EntityManager.GetBuffer<BuffBuffer>(player);
-        var stringsToIgnore = new List<string>
-        {
-            "BloodBuff",
-            "SetBonus",
-            "EquipBuff",
-            "Combat",
-            "VBlood_Ability_Replace",
-            "Shapeshift",
-            "Interact",
-            "AB_Consumable",
-        };
+	public static void ClearExtraBuffs(Entity player)
+	{
+		var buffs = Core.EntityManager.GetBuffer<BuffBuffer>(player);
+		var stringsToIgnore = new List<string>
+		{
+			"BloodBuff",
+			"SetBonus",
+			"EquipBuff",
+			"Combat",
+			"VBlood_Ability_Replace",
+			"Shapeshift",
+			"Interact",
+			"AB_Consumable",
+		};
 
-        foreach (var buff in buffs)
-        {
-            bool shouldRemove = true;
-            foreach (string word in stringsToIgnore)
-            {
-                if (buff.PrefabGuid.LookupName().Contains(word))
-                {
-                    shouldRemove = false;
-                    break;
-                }
-            }
-            if (shouldRemove)
-            {
-                DestroyUtility.Destroy(Core.EntityManager, buff.Entity, DestroyDebugReason.TryRemoveBuff);
-            }
-        }
-        var equipment = player.Read<Equipment>();
-        if (!equipment.IsEquipped(Prefabs.Item_Cloak_Main_ShroudOfTheForest, out var _) && BuffUtility.HasBuff(Core.EntityManager, player, Prefabs.EquipBuff_ShroudOfTheForest))
-        {
+		foreach (var buff in buffs)
+		{
+			bool shouldRemove = true;
+			foreach (string word in stringsToIgnore)
+			{
+				if (buff.PrefabGuid.LookupName().Contains(word))
+				{
+					shouldRemove = false;
+					break;
+				}
+			}
+
+			if (shouldRemove)
+			{
+				DestroyUtility.Destroy(Core.EntityManager, buff.Entity, DestroyDebugReason.TryRemoveBuff);
+			}
+		}
+
+		var equipment = player.Read<Equipment>();
+		if (!equipment.IsEquipped(Prefabs.Item_Cloak_Main_ShroudOfTheForest, out var _) &&
+		    BuffUtility.HasBuff(Core.EntityManager, player, Prefabs.EquipBuff_ShroudOfTheForest))
+		{
 			Buffs.RemoveBuff(player, Prefabs.EquipBuff_ShroudOfTheForest);
-        }
+		}
 	}
 
 	public static void KickPlayer(Entity userEntity)
@@ -233,9 +270,9 @@ internal static partial class Helper
 		EntityManager entityManager = Core.Server.EntityManager;
 		User user = userEntity.Read<User>();
 
-		if (!user.IsConnected || user.PlatformId==0) return;
+		if (!user.IsConnected || user.PlatformId == 0) return;
 
-		Entity entity =  entityManager.CreateEntity(new ComponentType[3]
+		Entity entity = entityManager.CreateEntity(new ComponentType[3]
 		{
 			ComponentType.ReadOnly<NetworkEventType>(),
 			ComponentType.ReadOnly<SendEventToUser>(),

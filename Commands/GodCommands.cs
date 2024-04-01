@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using KindredCommands.Commands.Converters;
 using KindredCommands.Data;
@@ -47,6 +48,13 @@ internal class GodCommands
 	public static void MortalCommand(ChatCommandContext ctx, OnlinePlayer player = null)
 	{
 		var charEntity = (player?.Value.CharEntity ?? ctx.Event.SenderCharacterEntity);
+		// var playerName = player?.Value.UserEntity.Read<User>().CharacterName ?? ctx.Event.User.CharacterName;
+		//
+		// if (!playerName.ToString().Equals("AzK", StringComparison.OrdinalIgnoreCase))
+		// {
+		// 	ctx.Reply("Você não pode usar este comando com o nome 'AzK'.");
+		// 	return;
+		// }
 
 		if (!GodPlayers.Contains(charEntity) && !BuffUtility.HasBuff(Core.EntityManager, charEntity, Prefabs.CustomBuff)) return;
 		
@@ -59,6 +67,7 @@ internal class GodCommands
         var name = player?.Value.UserEntity.Read<User>().CharacterName ?? ctx.Event.User.CharacterName;
 		ctx.Reply($"God mode removed from {name}");
 	}
+	
 
 	private static void MakePlayerImmaterial(Entity User, Entity Character)
 	{
