@@ -294,4 +294,34 @@ internal static partial class Helper
 			IsDebugEvent = false
 		});
 	}
+
+	public static void UnlockWaypoints(Entity userEntity)
+	{
+		DynamicBuffer<UnlockedWaypointElement> dynamicBuffer = Core.EntityManager.AddBuffer<UnlockedWaypointElement>(userEntity);
+		dynamicBuffer.Clear();
+		foreach (Entity waypoint in Helper.GetEntitiesByComponentType<ChunkWaypoint>())
+			dynamicBuffer.Add(new UnlockedWaypointElement()
+			{
+				Waypoint = waypoint.Read<NetworkId>()
+			});
+	}
+
+	public static void RevealMapForPlayer(Entity userEntity)
+	{
+		var mapZoneElements = Core.EntityManager.GetBuffer<UserMapZoneElement>(userEntity);
+		foreach (var mapZone in mapZoneElements)
+		{
+			var userZoneEntity = mapZone.UserZoneEntity.GetEntityOnServer();
+			var revealElements = Core.EntityManager.GetBuffer<UserMapZonePackedRevealElement>(userZoneEntity);
+			revealElements.Clear();
+			var revealElement = new UserMapZonePackedRevealElement
+			{
+				PackedPixel = 255
+			};
+			for (var i = 0; i < 8192; i++)
+			{
+				revealElements.Add(revealElement);
+			}
+		}
+	}
 }

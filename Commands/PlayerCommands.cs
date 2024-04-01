@@ -1,12 +1,10 @@
 using System;
 using System.Text.RegularExpressions;
 using Bloodstone.API;
-using Il2CppInterop.Runtime;
 using KindredCommands.Commands.Converters;
 using ProjectM;
 using ProjectM.Network;
 using Unity.Collections;
-using Unity.Entities;
 using VampireCommandFramework;
 
 namespace KindredCommands.Commands;
@@ -30,8 +28,6 @@ public static class PlayerCommands
 			ctx.Reply(
 				$"Renamed {Format.B(player.Value.CharacterName.ToString())} -> {Format.B(newName.Name.ToString())}");
 		}
-		
-		
 	}
 
 	[Command("rename", description: "Rename yourself.", adminOnly: true)]
@@ -86,6 +82,8 @@ public static class PlayerCommands
 		user = userEntity.Read<User>();
 		user.PlatformId = 0;
 		userEntity.Write(user);
+
+		Core.StealthAdminService.RemoveStealthAdmin(userEntity);
 	}
 
 	[Command("swapplayers", description: "Switches the steamIDs of two players.", adminOnly: true)]
@@ -106,6 +104,9 @@ public static class PlayerCommands
 		(user1.PlatformId, user2.PlatformId) = (user2.PlatformId, user1.PlatformId);
 		userEntity1.Write(user1);
 		userEntity2.Write(user2);
+
+		Core.StealthAdminService.RemoveStealthAdmin(userEntity1);
+		Core.StealthAdminService.RemoveStealthAdmin(userEntity2);
 	}
 
 	[Command("unlock", description: "Unlocks a player's skills, jouirnal, etc.", adminOnly: true)]
@@ -132,7 +133,6 @@ public static class PlayerCommands
 		}
 	}
 
-
 	public static DebugEventsSystem debugEventsSystem = VWorld.Server.GetExistingSystem<DebugEventsSystem>();
 
 	public static void UnlockPlayer(FromCharacter fromCharacter)
@@ -140,40 +140,36 @@ public static class PlayerCommands
 		debugEventsSystem.UnlockAllResearch(fromCharacter);
 		debugEventsSystem.UnlockAllVBloods(fromCharacter);
 		debugEventsSystem.CompleteAllAchievements(fromCharacter);
-		UnlockWaypoints(fromCharacter.User);
+		Helper.UnlockWaypoints(fromCharacter.User);
+		Helper.RevealMapForPlayer(fromCharacter.User);
 	}
 
-	public static void UnlockAllWaypoints(Entity User)
+	[Command("revealmap", description: "Reveal the map for a player.", adminOnly: true)]
+	public static void RevealMap(ChatCommandContext ctx, FoundPlayer player = null)
 	{
-		var buffer = VWorld.Server.EntityManager.AddBuffer<UnlockedWaypointElement>(User);
-		var waypointComponentType =
-			new ComponentType(Il2CppType.Of<ChunkWaypoint>(), ComponentType.AccessMode.ReadWrite);
-		var query = VWorld.Server.EntityManager.CreateEntityQuery(waypointComponentType);
-		var waypoints = query.ToEntityArray(Allocator.Temp);
-		foreach (var waypoint in waypoints)
+		var userEntity = player?.Value.UserEntity ?? ctx.Event.SenderUserEntity;
+		Helper.RevealMapForPlayer(userEntity);
+		if (player != null)
+			ServerChatUtils.SendSystemMessageToClient(Core.EntityManager, userEntity.Read<User>(),
+				"Your map has been revealed, you must relog to see.");
+		ctx.Reply($"Map has been revealed, {player?.Value.CharacterName ?? "you"} must relog to see.");
+	}
+
+	[Command("revealmapforallplayers", description: "Reveal the map for all players.", adminOnly: true)]
+	public static void RevealMapForAllPlayers(ChatCommandContext ctx)
+	{
+		if (Core.ConfigSettings.RevealMapToAll)
 		{
-			var unlockedWaypoint = new UnlockedWaypointElement();
-			unlockedWaypoint.Waypoint = waypoint.Read<NetworkId>();
-			buffer.Add(unlockedWaypoint);
+			ctx.Reply("Map is already revealed for all players.");
+			return;
 		}
-	}
 
-	public static void UnlockWaypoints(Entity User)
-	{
-		DynamicBuffer<UnlockedWaypointElement> dynamicBuffer =
-			VWorld.Server.EntityManager.AddBuffer<UnlockedWaypointElement>(User);
-		dynamicBuffer.Clear();
-		ComponentType componentType = new ComponentType(Il2CppType.Of<ChunkWaypoint>());
-		EntityManager entityManager = VWorld.Server.EntityManager;
-		ref EntityManager local = ref entityManager;
-		ComponentType[] componentTypeArray =
-		[
-			componentType
-		];
-		foreach (Entity entity in local.CreateEntityQuery(componentTypeArray).ToEntityArray(Allocator.Temp))
-			dynamicBuffer.Add(new UnlockedWaypointElement()
-			{
-				Waypoint = entity.Read<NetworkId>()
-			});
+		ctx.Reply("Revealing map to all players. Current logged in players will require a relog to see it.");
+		Core.ConfigSettings.RevealMapToAll = true;
+		var userEntities = Helper.GetEntitiesByComponentType<User>();
+		foreach (var userEntity in userEntities)
+		{
+			Helper.RevealMapForPlayer(userEntity);
+		}
 	}
 }
